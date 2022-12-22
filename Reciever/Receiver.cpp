@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <Windows.h>
+#include <iostream>
 
 const int MAX_BINFILE_NAME = 50;
 
 int main()
 {
-	char binFileName[MAX_BINFILE_NAME];
+	char binFileName[MAX_BINFILE_NAME] = "";
 	int maxRecords;
 	int numOfSenders;
 
@@ -29,25 +30,30 @@ int main()
 		ZeroMemory(&pi[i], sizeof pi);
 	}
 
-	char lpCommandLineTemplate[100] = "Sender.exe";
-	strcat_s(lpCommandLineTemplate, " ");
-	strcat_s(lpCommandLineTemplate, binFileName);
-	printf("%s", lpCommandLineTemplate, 100);
 
-
+	char stEvNameTemp[30] = "";
 	for (int i = 0; i < numOfSenders; i++) {
-		hStartEvents[i] = CreateEvent(
+		sprintf_s(stEvNameTemp, "Start %d", i);
+		hStartEvents[i] = CreateEventA(
 			nullptr,
 			false,
 			false,
-			nullptr
+			stEvNameTemp
 		);
 	}
 
+	char lpCommandLineTemplate[100] = "Sender.exe";
+	strcat_s(lpCommandLineTemplate, " ");
+	strcat_s(lpCommandLineTemplate, binFileName);
+
+	char lpCommandLine[100];
 	for (int i = 0; i < numOfSenders; i++) {
+		sprintf_s(lpCommandLine, "%s %d", lpCommandLineTemplate, i);
+		printf("%s\n", lpCommandLine);
+
 		CreateProcessA(
 			nullptr,
-			lpCommandLineTemplate,
+			lpCommandLine,
 			nullptr,
 			nullptr,
 			true,
@@ -59,5 +65,7 @@ int main()
 		);
 	}
 
+	WaitForMultipleObjects(numOfSenders, hStartEvents, true, 5000);
 
+	
 }
