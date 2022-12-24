@@ -3,18 +3,19 @@
 #include <iostream>
 #include <conio.h>
 
-const int MAX_BINFILE_NAME = 50;
+const int MAX_BINFILE_NAME = 100;
 const int NAME_SIZE = 30;
 const int MAX_MESSAGE_SIZE = 20;
 
 int main()
 {
 	char binFileName[MAX_BINFILE_NAME] = "";
-	char lpCommandLineTemplate[100] = "Sender.exe";
+	char lpCommandLineTemplate[MAX_BINFILE_NAME] = "";
 	char stEvNameTemp[NAME_SIZE] = "";
 	const char* mutexName = "accessMutex";
 	const char* readSemName = "readSem";
 	const char* writeSemName = "writeSem";
+	const char* fifoSemName = "fifoSem";
 	int maxRecords = 0;
 	int numOfSenders = 0;
 
@@ -24,12 +25,13 @@ int main()
 
 	printf("Enter the maximum number of records in the file: ");
 	scanf_s("%d", &maxRecords);
+
+	const int MAX_BYTES_IN_FILE = MAX_MESSAGE_SIZE * maxRecords;
 	
 	printf("Enter the number of Sender processes: ");
 	scanf_s("%d", &numOfSenders);
 
-	strcat_s(lpCommandLineTemplate, " ");
-	strcat_s(lpCommandLineTemplate, binFileName);
+	sprintf_s(lpCommandLineTemplate, "Sender.exe %s %d", binFileName, maxRecords);
 
 	FILE* fin;
 	errno_t err_fin = fopen_s(&fin, binFileName, "w+b");
@@ -37,7 +39,7 @@ int main()
 
 	HANDLE hMutex = CreateMutexA(
 		nullptr,
-		true,
+		false,
 		mutexName
 	);
 
@@ -53,6 +55,13 @@ int main()
 		maxRecords,
 		maxRecords,
 		writeSemName
+	);
+
+	HANDLE hFifoSemaphore = CreateSemaphoreA(
+		nullptr,
+		0,
+		maxRecords,
+		fifoSemName
 	);
 
 	HANDLE* hSenders = new HANDLE[numOfSenders];
@@ -109,19 +118,25 @@ int main()
 
 		if (choice == 'r') 
 		{
+			WaitForSingleObject(hReadSemaphore, INFINITE);
+			WaitForSingleObject(hMutex, INFINITE);
+
 			err_fin = fopen_s(&fin, binFileName, "rb");
-			if (ftell(fin) != SEEK_END)
+			if (!feof(fin))
 			{
-				fseek(fin, 0, currPosition);
+				fseek(fin, currPosition, SEEK_SET);
 				fread(message, MAX_MESSAGE_SIZE, sizeof(char), fin);
 				printf("Message: %s \n", message);
-				currPosition += MAX_MESSAGE_SIZE;
+				currPosition = (currPosition + MAX_MESSAGE_SIZE) % MAX_BYTES_IN_FILE;
 			}
 			else
 			{
 				printf("End of file\n");
 			}
 			fclose(fin);
+
+			ReleaseMutex(hMutex);
+			ReleaseSemaphore(hWriteSemaphore, 1, nullptr);
 		}
 	}
 }

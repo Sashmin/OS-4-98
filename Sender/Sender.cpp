@@ -4,17 +4,22 @@
 
 const int MAX_MESSAGE_SIZE = 20;
 
+
+
+
 int main(int argc, char* argv[])
 {
 	const char* mutexName = "accessMutex";
 	const char* readSemName = "readSem";
 	const char* writeSemName = "writeSem";
+	const char* fifoSemName = "fifoSem";
 	const char* binFileName = argv[1];
-	int id = atoi(argv[2]);
+	int id = atoi(argv[3]);
+	int maxRecords = atoi(argv[2]);
 	
 
 	char stEvName[30] = "";
-	sprintf_s(stEvName, "Start %s", argv[2]);
+	sprintf_s(stEvName, "Start %d", id);
 
 	HANDLE hStartEv = OpenEventA(
 		EVENT_ALL_ACCESS,
@@ -28,16 +33,22 @@ int main(int argc, char* argv[])
 		mutexName
 	);
 
-	HANDLE hreadSemaphore = OpenSemaphoreA(
+	HANDLE hReadSemaphore = OpenSemaphoreA(
 		SEMAPHORE_ALL_ACCESS,
 		true,
 		readSemName
 	);
 
-	HANDLE hwriteSemaphore = OpenSemaphoreA(
+	HANDLE hWriteSemaphore = OpenSemaphoreA(
 		SEMAPHORE_ALL_ACCESS,
 		true,
 		writeSemName
+	);
+
+	HANDLE hFifoSemaphore = OpenSemaphoreA(
+		SEMAPHORE_ALL_ACCESS,
+		true,
+		fifoSemName
 	);
 	
 	if (hStartEv) {
@@ -49,7 +60,8 @@ int main(int argc, char* argv[])
 
 	char choice = 'r';
 	char message[MAX_MESSAGE_SIZE + 1] = "";
-	int currPosition = 0;
+	long currFifoCount = 0;
+	long currPosition = 0;
 	FILE* fin;
 	errno_t err_fin;
 
@@ -61,18 +73,33 @@ int main(int argc, char* argv[])
 
 		if (choice == 'r')
 		{
-			err_fin = fopen_s(&fin, binFileName, "ab");
+			WaitForSingleObject(hWriteSemaphore, INFINITE);
+			WaitForSingleObject(hMutex, INFINITE);
+
+			bool canRelease = ReleaseSemaphore(hFifoSemaphore, 1, &currFifoCount);
+			if (!canRelease) 
+			{
+				currFifoCount = 0;
+				for (int i = 0; i < maxRecords - 1; i++) {
+					WaitForSingleObject(hFifoSemaphore, 0);
+				}
+			}
+			
+			currPosition = currFifoCount * MAX_MESSAGE_SIZE;
+			printf("pos: %d\n", currPosition);
+
+			err_fin = fopen_s(&fin, binFileName, "r+b");
 
 			printf("Enter message: ");
 			scanf_s("%s", message, MAX_MESSAGE_SIZE);
 
+			fseek(fin, currPosition, SEEK_SET);
 			fwrite(message, MAX_MESSAGE_SIZE, sizeof(char), fin);
 			fclose(fin);
+
+			ReleaseMutex(hMutex);
+			ReleaseSemaphore(hReadSemaphore, 1, nullptr);
 			
 		}
 	}
-
-
-	
-	_getch();
 }
