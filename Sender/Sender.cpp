@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
 	const char* writeSemName = "writeSem";
 	const char* fifoSemName = "fifoSem";
 	const char* binFileName = argv[1];
+
 	int id = atoi(argv[3]);
 	int maxRecords = atoi(argv[2]);
 	
@@ -76,11 +77,11 @@ int main(int argc, char* argv[])
 			WaitForSingleObject(hWriteSemaphore, INFINITE);
 			WaitForSingleObject(hMutex, INFINITE);
 
-			bool canRelease = ReleaseSemaphore(hFifoSemaphore, 1, &currFifoCount);
-			if (!canRelease) 
-			{
-				currFifoCount = 0;
-				for (int i = 0; i < maxRecords - 1; i++) {
+			bool canRelease = ReleaseSemaphore(hFifoSemaphore, 1, &currFifoCount);	//fifoSemaphore is used as a variable indicating
+			if (!canRelease)														//where the next message is to be written in file.
+			{																		//When maximum amount of records is reached, the 
+				currFifoCount = 0;													//semaphore count is dropped back to 0 and 
+				for (int i = 0; i < maxRecords - 1; i++) {							//next messages override the first ones in the file
 					WaitForSingleObject(hFifoSemaphore, 0);
 				}
 			}
