@@ -3,6 +3,7 @@
 #include <conio.h>
 
 const int MAX_MESSAGE_SIZE = 20;
+const int CHECK_BUFFER_SIZE = 200;
 
 
 
@@ -61,6 +62,7 @@ int main(int argc, char* argv[])
 
 	char choice = 'r';
 	char message[MAX_MESSAGE_SIZE + 1] = "";
+	char checkBuffer[CHECK_BUFFER_SIZE + 1] = "";
 	long currFifoCount = 0;
 	long currPosition = 0;
 	FILE* fin;
@@ -77,6 +79,14 @@ int main(int argc, char* argv[])
 			WaitForSingleObject(hWriteSemaphore, INFINITE);
 			WaitForSingleObject(hMutex, INFINITE);
 
+			printf("Enter message: ");
+			scanf_s("%s", checkBuffer, CHECK_BUFFER_SIZE);
+			if (strlen(checkBuffer) > 20)
+			{
+				printf("Your message contains more than %d symbols\n", MAX_MESSAGE_SIZE);
+				continue;
+			}
+
 			bool canRelease = ReleaseSemaphore(hFifoSemaphore, 1, &currFifoCount);	//fifoSemaphore is used as a variable indicating
 			if (!canRelease)														//where the next message is to be written in file.
 			{																		//When maximum amount of records is reached, the 
@@ -87,12 +97,9 @@ int main(int argc, char* argv[])
 			}
 			
 			currPosition = currFifoCount * MAX_MESSAGE_SIZE;
-			printf("pos: %d\n", currPosition);
-
 			err_fin = fopen_s(&fin, binFileName, "r+b");
 
-			printf("Enter message: ");
-			scanf_s("%s", message, MAX_MESSAGE_SIZE);
+			strncpy_s(message, checkBuffer, MAX_MESSAGE_SIZE);
 
 			fseek(fin, currPosition, SEEK_SET);
 			fwrite(message, MAX_MESSAGE_SIZE, sizeof(char), fin);
